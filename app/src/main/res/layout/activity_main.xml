@@ -57,7 +57,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="12dp"
-                    android:text="待機中"
+                    android:text="@string/state_idle"
                     android:textColor="@color/text_primary"
                     android:textSize="16sp"
                     android:textStyle="bold"
@@ -71,7 +71,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="檢測到 0 個人臉"
+                    android:text="@string/initial_face_count"
                     android:textColor="@color/text_secondary"
                     android:textSize="14sp"
                     app:layout_constraintEnd_toEndOf="parent"
@@ -83,7 +83,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="置信度: 0.00"
+                    android:text="@string/initial_face_confidence"
                     android:textColor="@color/text_secondary"
                     android:textSize="14sp"
                     app:layout_constraintEnd_toEndOf="parent"
@@ -96,7 +96,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="權限狀態"
+                    android:text="@string/permission_status_text"
                     android:textSize="12sp"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -123,7 +123,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="8dp"
                 android:layout_weight="1"
-                android:text="自由模式"
+                android:text="@string/free_mode"
                 app:cornerRadius="8dp" />
 
             <View
@@ -139,7 +139,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="打斷"
+                android:text="@string/interrupt"
                 app:cornerRadius="8dp" />
 
         </LinearLayout>
@@ -166,7 +166,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:padding="16dp"
-                    android:text="對話歷史"
+                    android:text="@string/conversation_history"
                     android:textColor="@color/text_primary"
                     android:textSize="16sp"
                     android:textStyle="bold"
@@ -206,7 +206,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="8dp"
                 android:layout_weight="1"
-                android:text="清除歷史"
+                android:text="@string/clear_history"
                 app:cornerRadius="8dp" />
 
             <com.google.android.material.button.MaterialButton
@@ -215,7 +215,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
-                android:text="測試語音"
+                android:text="@string/test_voice"
                 app:cornerRadius="8dp" />
 
         </LinearLayout>

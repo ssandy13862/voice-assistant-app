@@ -1,8 +1,10 @@
 package com.voiceassistant.app.di
 
+import com.voiceassistant.app.data.repository.AudioRecorderRepository
 import com.voiceassistant.app.data.repository.FaceDetectionRepositoryImpl
 import com.voiceassistant.app.data.repository.SpeechRepositoryImpl
 import com.voiceassistant.app.data.repository.VadRepositoryImpl
+import com.voiceassistant.app.data.repository.WhisperNativeRepository
 import com.voiceassistant.app.domain.repository.FaceDetectionRepository
 import com.voiceassistant.app.domain.repository.SpeechRepository
 import com.voiceassistant.app.domain.repository.VadRepository

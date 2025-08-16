@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 权限声明 -->
+    <!-- 權限聲明 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -26,6 +26,7 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@drawable/circle_indicator"
         android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@drawable/circle_indicator"
         android:supportsRtl="true"
         android:theme="@style/Theme.VoiceAssistant"

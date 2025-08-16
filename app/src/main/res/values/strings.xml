@@ -11,6 +11,7 @@
     
     <!-- 按鈕文字 -->
     <string name="free_mode">自由模式</string>
+    <string name="enter_free_mode">進入自由模式</string>
     <string name="exit_free_mode">退出自由模式</string>
     <string name="interrupt">打斷</string>
     <string name="clear_history">清除歷史</string>
@@ -18,18 +19,24 @@
     
     <!-- 資訊文字 -->
     <string name="conversation_history">對話歷史</string>
-    <string name="face_detected">檢測到 %d 個人臉</string>
+    <string name="face_detected">檢測到 %d 個臉部</string>
     <string name="face_confidence">置信度: %.2f</string>
     <string name="permissions_granted">權限已授予</string>
     <string name="permissions_needed">需要權限</string>
     
     <!-- 錯誤資訊 -->
     <string name="error_camera_init">相機初始化失敗</string>
+    <string name="error_camera_start">相機啟動失敗: %s</string>
     <string name="error_face_detection">人臉檢測錯誤</string>
     <string name="error_speech_recognition">語音識別失敗</string>
     <string name="error_ai_conversation">AI對話處理失敗</string>
     <string name="error_tts">語音合成失敗</string>
     <string name="error_permissions">需要相機和麥克風權限才能使用語音助理</string>
+    
+    <!-- 初始狀態文字 -->
+    <string name="initial_face_count">檢測到 0 個人臉</string>
+    <string name="initial_face_confidence">置信度: 0.00</string>
+    <string name="permission_status_text">權限狀態</string>
     
     <!-- 提示資訊 -->
     <string name="hint_face_detection">請面向相機以啟動語音助理</string>

@@ -1,9 +1,10 @@
 package com.voiceassistant.app.data.api
 
 import com.google.gson.annotations.SerializedName
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.*
-import java.io.File
 
 /**
  * OpenAI API介面
@@ -18,16 +19,18 @@ interface OpenAiApi {
 }
 
 /**
- * Whisper API介面（自架服務）
+ * OpenAI Whisper API介面
  */
 interface WhisperApi {
     
     @Multipart
-    @POST("transcribe")
+    @POST("audio/transcriptions")
     suspend fun transcribeAudio(
-        @Part("file") audioFile: File,
-        @Part("model") model: String = "whisper-1",
-        @Part("language") language: String = "zh"
+        @Header("Authorization") authorization: String,
+        @Part file: MultipartBody.Part,
+        @Part("model") model: RequestBody,
+        @Part("language") language: RequestBody? = null,
+        @Part("response_format") responseFormat: RequestBody? = null
     ): Response<TranscriptionResponse>
 }
 

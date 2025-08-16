@@ -18,38 +18,61 @@ class MainViewModel @Inject constructor(
     private val voiceAssistantUseCase: VoiceAssistantUseCase
 ) : ViewModel() {
 
-    // 语音助理状态
+    init {
+        // 觀察UseCase的錯誤訊息並轉發到UI
+        viewModelScope.launch {
+            voiceAssistantUseCase.errorMessage.collect { error ->
+                _errorMessage.emit(error)
+            }
+        }
+    }
+
+    // 語音助理狀態
     val assistantState: StateFlow<VoiceAssistantState> = voiceAssistantUseCase.state
 
-    // 对话历史
+    // 對話歷史
     val conversationHistory: StateFlow<List<ConversationItem>> = voiceAssistantUseCase.conversationHistory
 
-    // 人脸检测结果
+    // 人臉檢測結果
     private val _faceDetectionResult = MutableStateFlow<FaceDetectionResult?>(null)
     val faceDetectionResult: StateFlow<FaceDetectionResult?> = _faceDetectionResult.asStateFlow()
 
-    // 自由模式状态
+    // 自由模式狀態
     private val _isFreeMode = MutableStateFlow(false)
     val isFreeMode: StateFlow<Boolean> = _isFreeMode.asStateFlow()
 
-    // 错误信息
+    // 錯誤訊息
     private val _errorMessage = MutableSharedFlow<String>()
     val errorMessage: SharedFlow<String> = _errorMessage.asSharedFlow()
 
-    // 权限状态
+    // 權限狀態
     private val _permissionsGranted = MutableStateFlow(false)
     val permissionsGranted: StateFlow<Boolean> = _permissionsGranted.asStateFlow()
 
+    // 幀處理控制
+    private var lastProcessingTime = 0L
+    private val processingInterval = 500L // 每500毫秒處理一幀（2fps）
+
     /**
-     * 处理相机图像帧进行人脸检测
+     * 處理相機圖像幀進行人臉檢測
      */
     fun processCameraFrame(imageProxy: ImageProxy) {
+        val currentTime = System.currentTimeMillis()
+        
+        // 限制處理頻率，避免過度的人臉檢測
+        if (currentTime - lastProcessingTime < processingInterval) {
+            imageProxy.close()
+            return
+        }
+        
+        lastProcessingTime = currentTime
+        
         viewModelScope.launch {
             try {
                 val result = voiceAssistantUseCase.processFaceDetection(imageProxy)
                 _faceDetectionResult.value = result
             } catch (e: Exception) {
-                _errorMessage.emit("人脸检测错误: ${e.message}")
+                _errorMessage.emit("人臉檢測錯誤: ${e.message}")
             } finally {
                 imageProxy.close()
             }
@@ -57,7 +80,7 @@ class MainViewModel @Inject constructor(
     }
 
     /**
-     * 切换自由模式
+     * 切換自由模式
      */
     fun toggleFreeMode() {
         voiceAssistantUseCase.toggleFreeMode()
@@ -65,57 +88,56 @@ class MainViewModel @Inject constructor(
     }
 
     /**
-     * 手动触发语音输入（用于测试）
+     * 手動觸發語音輸入（用於測試）
      */
     fun startManualVoiceInput() {
         viewModelScope.launch {
             try {
-                // 模拟语音输入
-                val mockInput = "你好，今天天气怎么样？"
-                // voiceAssistantUseCase.processUserInput(mockInput)
+                // 調用語音助理的測試功能
+                voiceAssistantUseCase.startManualVoiceTest()
             } catch (e: Exception) {
-                _errorMessage.emit("语音输入错误: ${e.message}")
+                _errorMessage.emit("語音輸入錯誤: ${e.message}")
             }
         }
     }
 
     /**
-     * 中断TTS播放
+     * 中斷TTS播放
      */
     fun interruptSpeaking() {
         voiceAssistantUseCase.interruptSpeaking()
     }
 
     /**
-     * 清除对话历史
+     * 清除對話歷史
      */
     fun clearConversationHistory() {
         voiceAssistantUseCase.clearConversationHistory()
     }
 
     /**
-     * 设置权限状态
+     * 設置權限狀態
      */
     fun setPermissionsGranted(granted: Boolean) {
         _permissionsGranted.value = granted
     }
 
     /**
-     * 获取状态显示文本
+     * 獲取狀態顯示文本
      */
     fun getStateDisplayText(state: VoiceAssistantState): String {
         return when (state) {
-            VoiceAssistantState.IDLE -> "待机中"
-            VoiceAssistantState.DETECTING -> "检测人脸中"
-            VoiceAssistantState.LISTENING -> "聆听中"
-            VoiceAssistantState.PROCESSING -> "处理中"
-            VoiceAssistantState.SPEAKING -> "说话中"
-            VoiceAssistantState.ERROR -> "错误状态"
+            VoiceAssistantState.IDLE -> "待機中"
+            VoiceAssistantState.DETECTING -> "檢測人臉中"
+            VoiceAssistantState.LISTENING -> "聆聽中"
+            VoiceAssistantState.PROCESSING -> "處理中"
+            VoiceAssistantState.SPEAKING -> "說話中"
+            VoiceAssistantState.ERROR -> "錯誤狀態"
         }
     }
 
     /**
-     * 获取状态颜色资源ID
+     * 獲取狀態顏色資源ID
      */
     fun getStateColor(state: VoiceAssistantState): Int {
         return when (state) {

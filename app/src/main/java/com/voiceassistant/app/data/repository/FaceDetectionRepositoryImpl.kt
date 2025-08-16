@@ -24,7 +24,8 @@ class FaceDetectionRepositoryImpl @Inject constructor() : FaceDetectionRepositor
         .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
         .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
         .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
-        .setMinFaceSize(0.15f)
+        .setMinFaceSize(0.2f) // 提高最小人臉尺寸以減少誤檢
+        .setContourMode(FaceDetectorOptions.CONTOUR_MODE_NONE) // 關閉輪廓檢測
         .enableTracking()
         .build()
 

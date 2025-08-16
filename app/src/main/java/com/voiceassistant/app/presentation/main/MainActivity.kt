@@ -48,7 +48,7 @@ class MainActivity : AppCompatActivity() {
         if (allGranted) {
             setupCamera()
         } else {
-            Toast.makeText(this, "需要相機和麥克風權限才能使用語音助理", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.error_permissions), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -66,7 +66,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupViews() {
-        // 设置对话历史RecyclerView
+        // 設置對話歷史RecyclerView
         conversationAdapter = ConversationAdapter()
         binding.conversationRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity).apply {
@@ -75,7 +75,7 @@ class MainActivity : AppCompatActivity() {
             adapter = conversationAdapter
         }
 
-        // 设置按钮点击事件
+        // 設置按鈕點擊事件
         binding.freeModeButton.setOnClickListener {
             viewModel.toggleFreeMode()
         }
@@ -94,14 +94,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupObservers() {
-        // 观察语音助理状态
+        // 觀察語音助理狀態
         lifecycleScope.launch {
             viewModel.assistantState.collectLatest { state ->
                 updateStateUI(state)
             }
         }
 
-        // 观察对话历史
+        // 觀察對話歷史
         lifecycleScope.launch {
             viewModel.conversationHistory.collectLatest { conversations ->
                 conversationAdapter.submitList(conversations)
@@ -111,20 +111,24 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 观察人脸检测结果
-        lifecycleScope.launch {
-            viewModel.faceDetectionResult.collectLatest { result ->
-                result?.let {
-                    binding.faceCountText.text = "检测到 ${it.facesDetected} 个人脸"
-                    binding.faceConfidenceText.text = "置信度: ${String.format("%.2f", it.largestFaceConfidence)}"
-                }
-            }
-        }
+        // 觀察人臉檢測結果
+//        lifecycleScope.launch {
+//            viewModel.faceDetectionResult.collectLatest { result ->
+//                result?.let {
+//                    binding.faceCountText.text = getString(R.string.face_detected, it.facesDetected)
+//                    binding.faceConfidenceText.text = getString(R.string.face_confidence, it.largestFaceConfidence)
+//                }
+//            }
+//        }
 
-        // 观察自由模式状态
+        // 自由模式狀態
         lifecycleScope.launch {
             viewModel.isFreeMode.collectLatest { isFreeMode ->
-                binding.freeModeButton.text = if (isFreeMode) "退出自由模式" else "进入自由模式"
+                binding.freeModeButton.text = if (isFreeMode) {
+                    getString(R.string.exit_free_mode)
+                } else {
+                    getString(R.string.enter_free_mode)
+                }
                 binding.freeModeIndicator.setBackgroundColor(
                     ContextCompat.getColor(
                         this@MainActivity,
@@ -134,17 +138,21 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 观察错误信息
+        // 錯誤狀態
         lifecycleScope.launch {
             viewModel.errorMessage.collectLatest { error ->
                 Toast.makeText(this@MainActivity, error, Toast.LENGTH_LONG).show()
             }
         }
 
-        // 观察权限状态
+        // 權限狀態
         lifecycleScope.launch {
             viewModel.permissionsGranted.collectLatest { granted ->
-                binding.permissionStatus.text = if (granted) "权限已授予" else "需要权限"
+                binding.permissionStatus.text = if (granted) {
+                    getString(R.string.permissions_granted)
+                } else {
+                    getString(R.string.permissions_needed)
+                }
                 binding.permissionStatus.setTextColor(
                     ContextCompat.getColor(
                         this@MainActivity,
@@ -161,7 +169,7 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.getColor(this, viewModel.getStateColor(state))
         )
 
-        // 根据状态更新UI元素的可见性
+        // 根據狀態更新 UI
         binding.interruptButton.isEnabled = (state == VoiceAssistantState.SPEAKING)
     }
 
@@ -200,24 +208,24 @@ class MainActivity : AppCompatActivity() {
             setSurfaceProvider(binding.cameraPreview.surfaceProvider)
         }
 
-        // ImageAnalysis用例用于人脸检测
+        // ImageAnalysis用例用於人臉檢測
         imageAnalysis = ImageAnalysis.Builder()
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
             .apply {
-                setAnalyzer(cameraExecutor) { imageProxy ->
-                    viewModel.processCameraFrame(imageProxy)
-                }
+//                setAnalyzer(cameraExecutor) { imageProxy ->
+//                    viewModel.processCameraFrame(imageProxy)
+//                }
             }
 
-        // 选择后置摄像头
+        // 選擇前置攝影機
         val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
         try {
-            // 解绑之前的用例
+            // 解綁之前的用例
             cameraProvider.unbindAll()
 
-            // 绑定用例到生命周期
+            // 綁定用例到生命週期
             cameraProvider.bindToLifecycle(
                 this,
                 cameraSelector,
@@ -225,7 +233,7 @@ class MainActivity : AppCompatActivity() {
                 imageAnalysis
             )
         } catch (exc: Exception) {
-            Toast.makeText(this, "相机启动失败: ${exc.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.error_camera_start, exc.message ?: ""), Toast.LENGTH_SHORT).show()
         }
     }
 

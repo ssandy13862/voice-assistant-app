@@ -36,9 +36,22 @@ object NetworkModule {
     ): OkHttpClient {
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .addInterceptor { chain ->
+                val request = chain.request()
+                android.util.Log.d("NetworkModule", "Making request to: ${request.url}")
+                try {
+                    val response = chain.proceed(request)
+                    android.util.Log.d("NetworkModule", "Request successful: ${response.code}")
+                    response
+                } catch (e: Exception) {
+                    android.util.Log.e("NetworkModule", "Request failed: ${e.message}")
+                    throw e
+                }
+            }
             .build()
     }
 
@@ -55,24 +68,13 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    @Named("whisper")
-    fun provideWhisperRetrofit(okHttpClient: OkHttpClient): Retrofit {
-        return Retrofit.Builder()
-            .baseUrl("http://your-whisper-server.com/") // 替換為實際的Whisper服務地址
-            .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-    }
-
-    @Provides
-    @Singleton
     fun provideOpenAiApi(@Named("openai") retrofit: Retrofit): OpenAiApi {
         return retrofit.create(OpenAiApi::class.java)
     }
 
     @Provides
     @Singleton
-    fun provideWhisperApi(@Named("whisper") retrofit: Retrofit): WhisperApi {
+    fun provideWhisperApi(@Named("openai") retrofit: Retrofit): WhisperApi {
         return retrofit.create(WhisperApi::class.java)
     }
 }
