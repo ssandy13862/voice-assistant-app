@@ -25,7 +25,12 @@ object NetworkModule {
     @Singleton
     fun provideHttpLoggingInterceptor(): HttpLoggingInterceptor {
         return HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            // 使用 BASIC 級別避免記錄敏感數據 (API Keys, 音頻內容)
+            level = if (com.voiceassistant.app.BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.HEADERS
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
     }
 

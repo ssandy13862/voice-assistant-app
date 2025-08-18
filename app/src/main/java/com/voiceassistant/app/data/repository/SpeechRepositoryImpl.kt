@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Log
 import com.voiceassistant.app.data.api.ChatCompletionRequest
 import com.voiceassistant.app.data.api.ChatMessage
 import com.voiceassistant.app.data.api.OpenAiApi
@@ -15,7 +16,6 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
-import com.voiceassistant.app.BuildConfig
 import java.io.File
 import java.util.*
 import javax.inject.Inject
@@ -36,10 +36,12 @@ class SpeechRepositoryImpl @Inject constructor(
     private var textToSpeech: TextToSpeech? = null
     private var isTtsInitialized = false
     private var isSpeaking = false
-    private var useLocalWhisper = true // 是否使用本地 Whisper
+    private var useLocalWhisper = false // 預設使用遠端 Whisper，需要檢查本地模型後再決定
+    private var isWhisperInitialized = false
     
     // OpenAI API配置
     private val openAiApiKey = com.voiceassistant.app.BuildConfig.OPENAI_API_KEY
+    private val isApiKeyValid = openAiApiKey != "your_openai_api_key_here" && openAiApiKey.isNotBlank()
     private val systemPrompt = """
         你是一個智慧語音助理，需要：
         1. 用自然、友好的語調回應
@@ -51,6 +53,37 @@ class SpeechRepositoryImpl @Inject constructor(
 
     init {
         initializeTTS()
+        initializeWhisper()
+    }
+    
+    /**
+     * 初始化 Whisper（檢查本地模型是否可用）
+     */
+    private fun initializeWhisper() {
+        try {
+            // 首先嘗試安裝模型
+            android.util.Log.d("SpeechRepository", "檢查並安裝 Whisper 模型...")
+            val modelInstalled = whisperNativeRepository.installModel()
+            
+            if (modelInstalled && whisperNativeRepository.isModelAvailable()) {
+                android.util.Log.i("SpeechRepository", "本地 Whisper 模型可用，嘗試初始化...")
+                val modelPath = whisperNativeRepository.getModelPath()
+                isWhisperInitialized = whisperNativeRepository.initializeWhisper(modelPath)
+                
+                if (isWhisperInitialized) {
+                    useLocalWhisper = true
+                    android.util.Log.i("SpeechRepository", "本地 Whisper 初始化成功，使用本地識別")
+                } else {
+                    android.util.Log.w("SpeechRepository", "本地 Whisper 初始化失敗，使用遠端 API")
+                }
+            } else {
+                android.util.Log.i("SpeechRepository", "本地 Whisper 模型不可用，使用遠端 API")
+                android.util.Log.i("SpeechRepository", "提示：請參考 assets/download_whisper_model.md 手動安裝模型")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SpeechRepository", "Whisper 初始化異常", e)
+            useLocalWhisper = false
+        }
     }
 
     private fun initializeTTS() {
@@ -63,9 +96,20 @@ class SpeechRepositoryImpl @Inject constructor(
     }
 
     override suspend fun speechToText(audioFile: File): Result<String> {
-        return if (useLocalWhisper) {
+
+        // 初始化 Whisper
+        Log.d("SpeechRepository", "初始化 Whisper...")
+        initializeWhisper()
+
+        android.util.Log.i("SpeechRepository", "開始語音識別，使用 ${if (useLocalWhisper) "本地 Whisper" else "遠端 API"}")
+        android.util.Log.d("SpeechRepository", "音頻文件: ${audioFile.absolutePath}, 大小: ${audioFile.length()} bytes")
+        
+        return if (useLocalWhisper && isWhisperInitialized) {
             speechToTextLocal(audioFile)
         } else {
+            if (useLocalWhisper && !isWhisperInitialized) {
+                android.util.Log.w("SpeechRepository", "本地 Whisper 未初始化，切換到遠端 API")
+            }
             speechToTextRemote(audioFile)
         }
     }
@@ -104,6 +148,18 @@ class SpeechRepositoryImpl @Inject constructor(
      */
     private suspend fun speechToTextRemote(audioFile: File): Result<String> {
         return try {
+            if (!isApiKeyValid) {
+                android.util.Log.e("SpeechRepository", "OpenAI API Key 無效或未設置")
+                return Result.failure(Exception("需要設置有效的 OpenAI API Key"))
+            }
+            
+            if (!audioFile.exists() || audioFile.length() == 0L) {
+                android.util.Log.e("SpeechRepository", "音頻文件不存在或為空")
+                return Result.failure(Exception("音頻文件無效"))
+            }
+            
+            android.util.Log.d("SpeechRepository", "使用遠端 Whisper API，文件大小: ${audioFile.length()} bytes")
+            
             // 創建音頻文件的 RequestBody
             val requestFile = audioFile.asRequestBody("audio/wav".toMediaTypeOrNull())
             val filePart = MultipartBody.Part.createFormData("file", audioFile.name, requestFile)
@@ -169,7 +225,7 @@ class SpeechRepositoryImpl @Inject constructor(
     ): Result<String> {
         return try {
             // 添加網路連線診斷
-            android.util.Log.d("SpeechRepository", "開始 API 調用，API Key: ${openAiApiKey.take(20)}...")
+            android.util.Log.d("SpeechRepository", "開始 OpenAI API 調用...")
             
             // 暫時跳過真實 API，直接使用 Mock（用於測試）
             // TODO: 恢復真實 API 調用

@@ -1,7 +1,8 @@
 package com.voiceassistant.app.presentation.main
 
+import android.app.Application
 import androidx.camera.core.ImageProxy
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.voiceassistant.app.domain.model.*
 import com.voiceassistant.app.domain.usecase.VoiceAssistantUseCase
@@ -15,14 +16,23 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val voiceAssistantUseCase: VoiceAssistantUseCase
-) : ViewModel() {
+    application: Application,
+    private val voiceAssistantUseCase: VoiceAssistantUseCase,
+    private val vadTestHelper: com.voiceassistant.app.utils.VadTestHelper
+) : AndroidViewModel(application) {
 
     init {
         // 觀察UseCase的錯誤訊息並轉發到UI
         viewModelScope.launch {
             voiceAssistantUseCase.errorMessage.collect { error ->
                 _errorMessage.emit(error)
+            }
+        }
+        
+        // 觀察模型下載失敗事件
+        viewModelScope.launch {
+            voiceAssistantUseCase.modelDownloadFailed.collect { message ->
+                _modelDownloadFailed.emit(message)
             }
         }
     }
@@ -44,6 +54,10 @@ class MainViewModel @Inject constructor(
     // 錯誤訊息
     private val _errorMessage = MutableSharedFlow<String>()
     val errorMessage: SharedFlow<String> = _errorMessage.asSharedFlow()
+    
+    // 模型下載失敗事件
+    private val _modelDownloadFailed = MutableSharedFlow<String>()
+    val modelDownloadFailed: SharedFlow<String> = _modelDownloadFailed.asSharedFlow()
 
     // 權限狀態
     private val _permissionsGranted = MutableStateFlow(false)
@@ -121,6 +135,100 @@ class MainViewModel @Inject constructor(
     fun setPermissionsGranted(granted: Boolean) {
         _permissionsGranted.value = granted
     }
+    
+    /**
+     * 執行 VAD 診斷（長按測試按鈕觸發）
+     */
+    fun runVadDiagnosis() {
+        viewModelScope.launch {
+            try {
+                val diagnosis = vadTestHelper.diagnoseVadInitialization()
+                android.util.Log.i("MainViewModel", diagnosis)
+                _errorMessage.emit("診斷完成，請查看 Logcat 的 VadTestHelper 和 MainViewModel 標籤")
+            } catch (e: Exception) {
+                _errorMessage.emit("診斷失敗: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * 執行 Silero VAD 完整測試（包含 Whisper STT 測試）
+     */
+    fun testSileroVad() {
+        viewModelScope.launch {
+            try {
+                android.util.Log.i("MainViewModel", "開始執行完整語音系統測試...")
+                _errorMessage.emit("開始語音系統測試（VAD + Whisper STT），請查看 Logcat")
+                
+                val testResult = vadTestHelper.testSileroVad()
+                
+                android.util.Log.i("MainViewModel", "語音系統測試結果: $testResult")
+                val statusMessage = if (testResult) {
+                    "語音系統測試成功！VAD 和 Whisper 都正常運作"
+                } else {
+                    "語音系統測試失敗，請查看 Logcat 詳情"
+                }
+                _errorMessage.emit(statusMessage)
+                
+            } catch (e: Exception) {
+                _errorMessage.emit("測試異常: ${e.message}")
+            }
+        }
+    }
+    
+    /**
+     * 測試 Whisper 語音轉文字功能（使用真實音頻檔案）
+     */
+    fun testWhisperSTT() {
+        viewModelScope.launch {
+            try {
+                android.util.Log.i("MainViewModel", "開始測試 Whisper STT...")
+                _errorMessage.emit("測試 Whisper 語音轉文字中...")
+                
+                // 測試現有的音頻檔案
+                val testAudioFiles = listOf("morning.wav", "elevator.wav")
+                val speechRepository = voiceAssistantUseCase.getSpeechRepository()
+                
+                for (audioFileName in testAudioFiles) {
+                    try {
+                        // 從 assets 複製到臨時檔案
+                        val context = getApplication<Application>()
+                        val tempFile = java.io.File(context.cacheDir, "test_$audioFileName")
+                        context.assets.open(audioFileName).use { input ->
+                            tempFile.outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                        
+                        android.util.Log.i("MainViewModel", "測試音頻檔案: $audioFileName (${tempFile.length()} bytes)")
+                        
+                        // 調用 Whisper 轉錄
+                        val result = speechRepository.speechToText(tempFile)
+                        
+                        if (result.isSuccess) {
+                            val transcription = result.getOrNull() ?: ""
+                            android.util.Log.i("MainViewModel", "Whisper 轉錄結果 ($audioFileName): '$transcription'")
+                            _errorMessage.emit("轉錄結果 ($audioFileName): '$transcription'")
+                        } else {
+                            android.util.Log.e("MainViewModel", "轉錄失敗 ($audioFileName): ${result.exceptionOrNull()?.message}")
+                            _errorMessage.emit("轉錄失敗 ($audioFileName): ${result.exceptionOrNull()?.message}")
+                        }
+                        
+                        // 清理臨時檔案
+                        tempFile.delete()
+                        
+                    } catch (e: Exception) {
+                        android.util.Log.e("MainViewModel", "測試音頻檔案 $audioFileName 失敗", e)
+                        _errorMessage.emit("測試 $audioFileName 失敗: ${e.message}")
+                    }
+                }
+                
+            } catch (e: Exception) {
+                android.util.Log.e("MainViewModel", "Whisper STT 測試異常", e)
+                _errorMessage.emit("Whisper STT 測試異常: ${e.message}")
+            }
+        }
+    }
 
     /**
      * 獲取狀態顯示文本
@@ -147,6 +255,26 @@ class MainViewModel @Inject constructor(
             VoiceAssistantState.PROCESSING -> android.R.color.holo_orange_light
             VoiceAssistantState.SPEAKING -> android.R.color.holo_purple
             VoiceAssistantState.ERROR -> android.R.color.holo_red_light
+        }
+    }
+    
+    /**
+     * 重試 VAD 初始化
+     */
+    fun retryVadInitialization() {
+        viewModelScope.launch {
+            try {
+                _errorMessage.emit("正在重新下載 VAD 模型...")
+                // 通過重新初始化 VAD 來觸發重新下載
+                val success = voiceAssistantUseCase.retryVadInitialization()
+                if (success) {
+                    _errorMessage.emit("VAD 模型重新下載成功！")
+                } else {
+                    _errorMessage.emit("VAD 模型重新下載失敗，請檢查網路連線")
+                }
+            } catch (e: Exception) {
+                _errorMessage.emit("重試初始化失敗: ${e.message}")
+            }
         }
     }
 

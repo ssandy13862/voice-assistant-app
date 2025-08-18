@@ -7,6 +7,7 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
+import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -84,6 +85,7 @@ class AudioRecorderRepository @Inject constructor(
     /**
      * 初始化音頻錄製器
      */
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun initialize(): Boolean {
         if (!hasAudioPermission()) {
             Log.e(TAG, "沒有音頻錄製權限")

@@ -122,6 +122,9 @@ dependencies {
     // Audio Processing
     implementation 'com.github.squti:Android-Wave-Recorder:1.7.0'
     
+    // ONNX Runtime for Silero VAD
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.16.3'
+    
     // 本地音頻處理和 VAD (移除有問題的依賴)
     // implementation 'com.github.pjmike:AudioVisualizer:1.0.2'
     

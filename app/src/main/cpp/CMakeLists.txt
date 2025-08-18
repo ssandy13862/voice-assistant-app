@@ -13,13 +13,9 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/vad
 )
 
-# Whisper.cpp 源文件
+# 簡化 Whisper 實現
 set(WHISPER_SOURCES
     whisper/whisper.cpp
-    whisper/ggml.cpp
-    whisper/ggml-alloc.cpp
-    whisper/ggml-backend.cpp
-    whisper/ggml-quants.cpp
 )
 
 # VAD 源文件
@@ -59,8 +55,12 @@ target_compile_options(voiceassistant PRIVATE
     -O3
     -ffast-math
     -funroll-loops
-    -DGGML_USE_ACCELERATE=1
     -DANDROID
+)
+
+# Whisper 編譯定義
+target_compile_definitions(voiceassistant PRIVATE
+    ANDROID
 )
 
 # 如果是 ARM64，啟用 NEON

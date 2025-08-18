@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include "whisper/whisper.h"
 
 class AudioProcessor {
 public:

@@ -7,12 +7,6 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
-// 簡化的 Whisper 結構（實際使用時需要包含 whisper.h）
-struct whisper_context {
-    // 模型數據
-    bool loaded;
-};
-
 AudioProcessor::AudioProcessor() : whisper_ctx(nullptr), is_initialized(false) {
     LOGI("AudioProcessor 構造函數");
 }
@@ -24,10 +18,13 @@ AudioProcessor::~AudioProcessor() {
 bool AudioProcessor::initWhisper(const std::string& model_path) {
     LOGI("初始化 Whisper 模型: %s", model_path.c_str());
     
-    // 這裡應該加載真實的 Whisper 模型
-    // 暫時使用簡化版本
-    whisper_ctx = new whisper_context();
-    static_cast<whisper_context*>(whisper_ctx)->loaded = true;
+    // 使用現有的簡化 API
+    whisper_ctx = whisper_init_from_file(model_path.c_str());
+    
+    if (whisper_ctx == nullptr) {
+        LOGE("無法加載 Whisper 模型: %s", model_path.c_str());
+        return false;
+    }
     
     is_initialized = true;
     LOGI("Whisper 模型初始化完成");
@@ -45,37 +42,34 @@ std::string AudioProcessor::transcribe(const std::vector<float>& audio_data) {
     // 預處理音頻
     std::vector<float> processed_audio = preprocessAudio(audio_data);
     
-    // 這裡應該調用真實的 Whisper 推理
-    // 暫時返回模擬結果
     if (processed_audio.size() < 1000) {
+        LOGE("音頻樣本太少: %zu", processed_audio.size());
         return ""; // 音頻太短
     }
     
-    // 基於音頻能量的簡單語音檢測
-    float energy = 0.0f;
-    for (float sample : processed_audio) {
-        energy += sample * sample;
-    }
-    energy /= processed_audio.size();
+    // 設置 Whisper 推理參數
+    whisper_params wparams = whisper_full_default_params(0);
     
-    if (energy < 0.001f) {
-        return ""; // 靜音
+    // 執行語音識別 - 使用現有的簡化 API
+    if (whisper_full(static_cast<struct whisper_context*>(whisper_ctx), wparams, processed_audio.data(), processed_audio.size()) != 0) {
+        LOGE("Whisper 識別失敗");
+        return "";
     }
     
-    // 模擬轉錄結果（實際實現需要調用 Whisper）
-    std::vector<std::string> mock_results = {
-        "你好",
-        "今天天氣怎麼樣",
-        "請告訴我一個笑話",
-        "現在幾點了",
-        "謝謝你的幫助",
-        "播放音樂",
-        "設定鬧鐘"
-    };
+    // 獲取識別結果
+    const int n_segments = whisper_full_n_segments(static_cast<struct whisper_context*>(whisper_ctx));
+    if (n_segments <= 0) {
+        LOGI("沒有識別到語音內容");
+        return "";
+    }
     
-    // 基於音頻特徵選擇結果
-    size_t index = static_cast<size_t>(energy * 1000) % mock_results.size();
-    std::string result = mock_results[index];
+    std::string result;
+    for (int i = 0; i < n_segments; ++i) {
+        const char* text = whisper_full_get_segment_text(static_cast<struct whisper_context*>(whisper_ctx), i);
+        if (text != nullptr) {
+            result += text;
+        }
+    }
     
     LOGI("轉錄結果: %s", result.c_str());
     return result;
@@ -140,7 +134,7 @@ std::vector<float> AudioProcessor::resample16k(const std::vector<float>& audio, 
 
 void AudioProcessor::cleanup() {
     if (whisper_ctx) {
-        delete static_cast<whisper_context*>(whisper_ctx);
+        whisper_free(static_cast<struct whisper_context*>(whisper_ctx));
         whisper_ctx = nullptr;
     }
     is_initialized = false;

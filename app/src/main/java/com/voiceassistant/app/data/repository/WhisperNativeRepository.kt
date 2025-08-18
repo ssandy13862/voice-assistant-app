@@ -152,7 +152,7 @@ class WhisperNativeRepository @Inject constructor(
         if (!modelDir.exists()) {
             modelDir.mkdirs()
         }
-        return File(modelDir, "ggml-base.bin").absolutePath
+        return File(modelDir, "ggml-small.bin").absolutePath
     }
     
     /**
@@ -161,7 +161,86 @@ class WhisperNativeRepository @Inject constructor(
     fun isModelAvailable(): Boolean {
         val modelPath = getModelPath()
         val modelFile = File(modelPath)
-        return modelFile.exists() && modelFile.length() > 0
+        return modelFile.exists() && modelFile.length() > 100_000_000L // 至少 100MB
+    }
+    
+    /**
+     * 從 assets 或外部存儲安裝模型
+     */
+    fun installModel(): Boolean {
+        return try {
+            val modelPath = getModelPath()
+            val modelFile = File(modelPath)
+            
+            if (modelFile.exists()) {
+                Log.i(TAG, "Whisper 模型已存在: ${modelFile.absolutePath}")
+                return true
+            }
+            
+            // 嘗試從 assets 複製
+            Log.d(TAG, "嘗試從 assets 安裝 Whisper 模型...")
+            val assetsInstalled = installFromAssets()
+            if (assetsInstalled) {
+                Log.i(TAG, "從 assets 安裝模型成功")
+                return true
+            }
+            
+            // 嘗試從外部存儲複製
+            Log.d(TAG, "嘗試從外部存儲安裝 Whisper 模型...")
+            val externalInstalled = installFromExternalStorage()
+            if (externalInstalled) {
+                Log.i(TAG, "從外部存儲安裝模型成功")
+                return true
+            }
+            
+            Log.w(TAG, "未找到 Whisper 模型文件，請參考 download_whisper_model.md")
+            false
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "安裝 Whisper 模型失敗", e)
+            false
+        }
+    }
+    
+    private fun installFromAssets(): Boolean {
+        return try {
+            val modelPath = getModelPath()
+            context.assets.open("ggml-small.bin").use { input ->
+                File(modelPath).outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            Log.i(TAG, "從 assets 複製模型完成")
+            true
+        } catch (e: Exception) {
+            Log.d(TAG, "assets 中未找到模型: ${e.message}")
+            false
+        }
+    }
+    
+    private fun installFromExternalStorage(): Boolean {
+        return try {
+            val externalPaths = listOf(
+                "/sdcard/ggml-small.bin",
+                "/sdcard/Download/ggml-small.bin",
+                "/sdcard/Android/data/${context.packageName}/files/ggml-small.bin"
+            )
+            
+            for (externalPath in externalPaths) {
+                val externalFile = File(externalPath)
+                if (externalFile.exists() && externalFile.length() > 100_000_000L) {
+                    Log.d(TAG, "找到外部模型: $externalPath")
+                    val modelPath = getModelPath()
+                    externalFile.copyTo(File(modelPath), overwrite = true)
+                    Log.i(TAG, "從 $externalPath 複製模型完成")
+                    return true
+                }
+            }
+            false
+        } catch (e: Exception) {
+            Log.d(TAG, "從外部存儲複製失敗: ${e.message}")
+            false
+        }
     }
     
     // JNI 方法聲明
