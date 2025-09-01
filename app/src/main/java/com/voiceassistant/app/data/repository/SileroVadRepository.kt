@@ -20,7 +20,6 @@ import javax.inject.Singleton
  */
 @Singleton
 class SileroVadRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val modelDownloader: ModelDownloader
 ) {
     

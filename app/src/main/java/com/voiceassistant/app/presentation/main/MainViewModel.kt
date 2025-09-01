@@ -186,7 +186,7 @@ class MainViewModel @Inject constructor(
                 _errorMessage.emit("測試 Whisper 語音轉文字中...")
                 
                 // 測試現有的音頻檔案
-                val testAudioFiles = listOf("morning.wav", "elevator.wav")
+                val testAudioFiles = listOf("morning.wav", "breakfesttt.wav")
                 val speechRepository = voiceAssistantUseCase.getSpeechRepository()
                 
                 for (audioFileName in testAudioFiles) {

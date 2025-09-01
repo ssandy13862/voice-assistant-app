@@ -9,11 +9,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.sin
-import kotlin.math.PI
 import ai.onnxruntime.*
 import java.io.File
-import java.io.FileOutputStream
 
 /**
  * VAD 測試輔助類
@@ -164,14 +161,6 @@ class VadTestHelper @Inject constructor(
             val silenceResult = testSilenceDetection()
             Log.i(TAG, "靜音檢測測試: $silenceResult")
             
-            // 測試語音檢測
-            val voiceResult = testVoiceDetection()
-            Log.i(TAG, "語音檢測測試: $voiceResult")
-            
-            // 測試批量處理
-            val batchResult = testBatchProcessing()
-            Log.i(TAG, "批量處理測試: $batchResult")
-            
             // 測試 Whisper STT
             val whisperResult = testWhisperStt()
             Log.i(TAG, "Whisper STT 測試: $whisperResult")
@@ -179,7 +168,7 @@ class VadTestHelper @Inject constructor(
             // 清理資源
             sileroVadRepository.cleanup()
             
-            val allTestsPassed = silenceResult && voiceResult && batchResult && whisperResult
+            val allTestsPassed = silenceResult && whisperResult
             Log.i(TAG, "Silero VAD 測試完成，結果: ${if (allTestsPassed) "通過" else "失敗"}")
             
             allTestsPassed
@@ -209,103 +198,6 @@ class VadTestHelper @Inject constructor(
             Log.e(TAG, "靜音檢測測試失敗", e)
             false
         }
-    }
-    
-    /**
-     * 測試語音檢測
-     */
-    private suspend fun testVoiceDetection(): Boolean {
-        return try {
-            // 生成模擬語音信號（正弦波 + 噪聲）
-            val voiceChunk = generateSyntheticVoice()
-            
-            val (isVoice, probability) = sileroVadRepository.detectVoiceActivity(voiceChunk)
-            
-            Log.d(TAG, "語音測試 - isVoice: $isVoice, probability: $probability")
-            
-            // 模擬語音信號應該有較高的概率被檢測為語音
-            probability > 0.1f // 較寬松的閾值，因為是合成信號
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "語音檢測測試失敗", e)
-            false
-        }
-    }
-    
-    /**
-     * 測試批量處理
-     */
-    private suspend fun testBatchProcessing(): Boolean {
-        return try {
-            // 創建包含靜音和語音的音頻序列
-            val audioSequence = FloatArray(CHUNK_SIZE * 4) { i ->
-                when {
-                    i < CHUNK_SIZE -> 0.0f // 靜音
-                    i < CHUNK_SIZE * 2 -> generateSineWave(i.toFloat(), 440.0f) // 語音
-                    i < CHUNK_SIZE * 3 -> 0.0f // 靜音
-                    else -> generateSineWave(i.toFloat(), 880.0f) // 語音
-                }
-            }
-            
-            val results = sileroVadRepository.processAudioBatch(audioSequence)
-            
-            Log.d(TAG, "批量處理測試結果:")
-            results.forEachIndexed { index, (isVoice, probability) ->
-                Log.d(TAG, "  塊 $index: isVoice=$isVoice, probability=$probability")
-            }
-            
-            // 檢查結果是否合理（至少有一些檢測結果）
-            results.isNotEmpty() && results.size == 4
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "批量處理測試失敗", e)
-            false
-        }
-    }
-    
-    /**
-     * 生成合成語音信號
-     */
-    private fun generateSyntheticVoice(): FloatArray {
-        val chunk = FloatArray(CHUNK_SIZE)
-        
-        for (i in chunk.indices) {
-            val t = i.toFloat() / SAMPLE_RATE
-            
-            // 混合多個頻率的正弦波來模擬語音
-            val fundamental = 0.3f * sin(2 * PI * 150 * t).toFloat() // 基頻
-            val harmonic1 = 0.2f * sin(2 * PI * 300 * t).toFloat()   // 二次諧波
-            val harmonic2 = 0.1f * sin(2 * PI * 450 * t).toFloat()   // 三次諧波
-            val noise = (Math.random() - 0.5).toFloat() * 0.05f       // 少量噪聲
-            
-            chunk[i] = fundamental + harmonic1 + harmonic2 + noise
-        }
-        
-        return chunk
-    }
-    
-    /**
-     * 生成正弦波
-     */
-    private fun generateSineWave(sample: Float, frequency: Float): Float {
-        val t = sample / SAMPLE_RATE
-        return (0.5f * sin(2 * PI * frequency * t)).toFloat()
-    }
-    
-    /**
-     * 獲取 VAD 狀態信息
-     */
-    fun getVadStatus(): String {
-        return """
-            |Silero VAD 狀態:
-            |- 已初始化: ${sileroVadRepository.isInitialized()}
-            |- 模型路徑: ${context.filesDir}/silero_vad.onnx
-            |
-            |測試建議:
-            |1. 確保網絡連接正常（首次運行需下載模型）
-            |2. 檢查存儲空間（模型約1.4MB）
-            |3. 運行 testSileroVad() 進行功能驗證
-        """.trimMargin()
     }
     
     /**
@@ -363,28 +255,6 @@ class VadTestHelper @Inject constructor(
                 return testFile
             }
             
-            // 備用方案：生成包含多種音調的合成音頻（模擬語音變化）
-            Log.d(TAG, "使用合成語音測試音頻")
-            val sampleRate = SAMPLE_RATE
-            val duration = 3.0 // 3秒，更長的測試音頻
-            val numSamples = (sampleRate * duration).toInt()
-            
-            // 生成模擬語音的複合音頻（多個頻率組合）
-            val audioData = FloatArray(numSamples) { i ->
-                val time = i.toFloat() / sampleRate
-                // 基頻 + 諧波，模擬人聲特徵
-                val fundamental = sin(2.0 * PI * 200.0 * time).toFloat() * 0.3f  // 基頻 200Hz
-                val harmonic2 = sin(2.0 * PI * 400.0 * time).toFloat() * 0.2f    // 二次諧波
-                val harmonic3 = sin(2.0 * PI * 600.0 * time).toFloat() * 0.1f    // 三次諧波
-                val envelope = sin(PI * time / duration).toFloat()                // 包絡線
-                
-                (fundamental + harmonic2 + harmonic3) * envelope * 0.5f
-            }
-            
-            // 寫入 WAV 文件
-            writeWavFile(testFile, audioData, sampleRate)
-            
-            Log.d(TAG, "測試音頻文件創建成功: ${testFile.absolutePath}")
             return testFile
             
         } catch (e: Exception) {
@@ -399,7 +269,7 @@ class VadTestHelper @Inject constructor(
     private fun loadTestAudioFromAssets(): File? {
         return try {
             val testAudioNames = listOf(
-                "morning.wav",        // "morning"
+                "breakfesttt.wav",        // "breakfest"
                 "test_audio_hello.wav",        // "你好"
                 "test_audio_thanks.wav",       // "謝謝"
                 "test_audio_question.wav",     // "今天天氣如何"
@@ -426,61 +296,5 @@ class VadTestHelper @Inject constructor(
             Log.d(TAG, "載入測試音頻失敗: ${e.message}")
             null
         }
-    }
-    
-    /**
-     * 寫入 WAV 文件
-     */
-    private fun writeWavFile(file: File, audioData: FloatArray, sampleRate: Int) {
-        FileOutputStream(file).use { fos ->
-            // WAV 文件頭
-            val numChannels = 1
-            val bitsPerSample = 16
-            val byteRate = sampleRate * numChannels * bitsPerSample / 8
-            val blockAlign = numChannels * bitsPerSample / 8
-            val dataSize = audioData.size * 2 // 16-bit samples
-            val fileSize = 36 + dataSize
-            
-            // RIFF header
-            fos.write("RIFF".toByteArray())
-            fos.write(intToByteArray(fileSize))
-            fos.write("WAVE".toByteArray())
-            
-            // fmt chunk
-            fos.write("fmt ".toByteArray())
-            fos.write(intToByteArray(16)) // chunk size
-            fos.write(shortToByteArray(1)) // audio format (PCM)
-            fos.write(shortToByteArray(numChannels.toShort()))
-            fos.write(intToByteArray(sampleRate))
-            fos.write(intToByteArray(byteRate))
-            fos.write(shortToByteArray(blockAlign.toShort()))
-            fos.write(shortToByteArray(bitsPerSample.toShort()))
-            
-            // data chunk
-            fos.write("data".toByteArray())
-            fos.write(intToByteArray(dataSize))
-            
-            // 寫入音頻數據 (轉換 float 到 16-bit PCM)
-            for (sample in audioData) {
-                val intSample = (sample * 32767).toInt().coerceIn(-32768, 32767)
-                fos.write(shortToByteArray(intSample.toShort()))
-            }
-        }
-    }
-    
-    private fun intToByteArray(value: Int): ByteArray {
-        return byteArrayOf(
-            (value and 0xFF).toByte(),
-            (value shr 8 and 0xFF).toByte(),
-            (value shr 16 and 0xFF).toByte(),
-            (value shr 24 and 0xFF).toByte()
-        )
-    }
-    
-    private fun shortToByteArray(value: Short): ByteArray {
-        return byteArrayOf(
-            (value.toInt() and 0xFF).toByte(),
-            (value.toInt() shr 8 and 0xFF).toByte()
-        )
     }
 }

@@ -12,8 +12,8 @@ struct whisper_context;
 
 struct whisper_params {
     int n_threads;
-    bool translate;
-    std::string language;
+    int translate;  // 改為 int 而非 bool，避免 C/C++ 兼容問題
+    char language[8];  // 改為 char 數組而非 std::string，避免 C 兼容問題
 };
 
 // Whisper 函數聲明
